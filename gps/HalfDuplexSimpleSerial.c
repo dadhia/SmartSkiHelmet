@@ -37,6 +37,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "HalfDuplexSimpleSerial.h"
+#define LOW 0
+#define HIGH 1
+# define cli()  __asm__ __volatile__ ("cli" ::)
 
 // Lookup table
 typedef struct _DELAY_TABLE
@@ -82,6 +85,8 @@ uint16_t _tx_delay;
 
 uint8_t _inverse_logic;
 
+volatile unsigned long timer0_millis = 0;
+
 uint8_t HDSS_rxtx_pin_read();
 void HDSS_rxtx_pin_write(uint8_t pin_state);
 void HDSS_set_to_tx(void);
@@ -90,7 +95,7 @@ void HDSS_set_to_rx(void);
 inline void HDSS_tunedDelay(uint16_t delay);
 
 
-/* delay written with assmbly to get accurate timing */
+/* delay written with assembly to get accurate timing */
 inline void HDSS_tunedDelay(uint16_t delay) 
 { 
   uint8_t tmp=0;  
@@ -107,25 +112,20 @@ inline void HDSS_tunedDelay(uint16_t delay)
 /* set the io to tx (output) to tx data */
 void HDSS_set_to_tx(void)
 {
-  pinMode(_rxtxPin, OUTPUT);
-  digitalWrite(_rxtxPin, HIGH);
-  //_rxtxBitMask = digitalPinToBitMask(_rxtxPin);
-  uint8_t port = digitalPinToPort(_rxtxPin);
-  _rxtxPortRegister = portOutputRegister(port);
+    DDRD |= 1 << DDD6;
+    PORTD |= 1 << PD6;
+    _rxtxPortRegister = &PORTD;
 }
 
 /* set the io to rx(input), ready for receiving */
 void HDSS_set_to_rx(void)
 {
-  pinMode(_rxtxPin, INPUT);
-  if (!_inverse_logic)
-  {
-    digitalWrite(_rxtxPin, HIGH);  // pullup for normal logic!
-  }
-  //_rxtxPin = rx;
-  //_rxtxBitMask = digitalPinToBitMask(rx);
-  uint8_t port = digitalPinToPort(_rxtxPin);
-  _rxtxPortRegister = portInputRegister(port);
+    DDRD &= ~(1 << DDD6);
+    if (!_inverse_logic)
+    {
+        PORTD |= 1 << PD6;
+    }
+    _rxtxPortRegister = &PIND;
 }
 
 /* write a bit to sio */
@@ -150,10 +150,7 @@ uint8_t HDSS_rxtx_pin_read()
 /* release the io */
 void HDSS_stop(void)
 {
-  if (digitalPinToPCMSK(_rxtxPin))
-  {
-      *digitalPinToPCMSK(_rxtxPin) &= ~_BV(digitalPinToPCMSKbit(_rxtxPin));
-  }
+    PCMSK0 &= ~(1 << 4);
 }
 
 /* start and initalize the io, baudrate */
@@ -167,7 +164,7 @@ void HDSS_start(uint8_t rxtxPin, uint8_t inverse_logic, long speed)
   _tx_delay = 0;
   
   _rxtxPin = rxtxPin;
-  _rxtxBitMask = digitalPinToBitMask(rxtxPin);
+  _rxtxBitMask = 1 << PD6;
 
   for (i=0; i<sizeof(table)/sizeof(table[0]); ++i)
   {
@@ -240,6 +237,20 @@ void HDSS_write(uint8_t b)
   
     HDSS_set_to_rx();
   }
+}
+
+unsigned long millis()
+{
+        unsigned long m;
+        uint8_t oldSREG = SREG;
+
+        // disable interrupts while we read timer0_millis or we might get an
+        // inconsistent value (e.g. in the middle of a write to timer0_millis)
+        cli();
+        m = timer0_millis;
+        SREG = oldSREG;
+
+        return m;
 }
 
 
