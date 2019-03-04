@@ -6,7 +6,6 @@
 #include "GPSSmartModule.h"
 #include "gps_type_define.h"
 
-#define GPS_SIO_PIN 12
 #define GPS_BAUD_RATE 9600
 #define FOSC 7372800		    // Clock frequency
 #define BAUD 9600               // Baud rate used by the LCD
@@ -57,7 +56,7 @@ void gps_send_cmd(uint8_t command_class, uint8_t command) {
 
 int main(void) {
 	serial_init();
-    HDSS_start(GPS_SIO_PIN, 0, GPS_BAUD_RATE);
+    HDSS_start(0, GPS_BAUD_RATE);
 	char c;
     uint8_t i;
     uint8_t rxdata = 0;

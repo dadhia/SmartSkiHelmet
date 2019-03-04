@@ -112,18 +112,18 @@ inline void HDSS_tunedDelay(uint16_t delay)
 /* set the io to tx (output) to tx data */
 void HDSS_set_to_tx(void)
 {
-    DDRD |= 1 << DDD6;
-    PORTD |= 1 << PD6;
+    DDRD |= 1 << DDD7;
+    PORTD |= 1 << PD7;
     _rxtxPortRegister = &PORTD;
 }
 
 /* set the io to rx(input), ready for receiving */
 void HDSS_set_to_rx(void)
 {
-    DDRD &= ~(1 << DDD6);
+    DDRD &= ~(1 << DDD7);
     if (!_inverse_logic)
     {
-        PORTD |= 1 << PD6;
+        PORTD |= 1 << PD7;
     }
     _rxtxPortRegister = &PIND;
 }
@@ -154,7 +154,7 @@ void HDSS_stop(void)
 }
 
 /* start and initalize the io, baudrate */
-void HDSS_start(uint8_t rxtxPin, uint8_t inverse_logic, long speed)
+void HDSS_start(uint8_t inverse_logic, long speed)
 {
   unsigned char i = 0;
   //uint8_t port;
@@ -162,9 +162,8 @@ void HDSS_start(uint8_t rxtxPin, uint8_t inverse_logic, long speed)
   _rx_delay_intrabit = 0;
   _rx_delay_stopbit = 0;
   _tx_delay = 0;
-  
-  _rxtxPin = rxtxPin;
-  _rxtxBitMask = 1 << PD6;
+
+  _rxtxBitMask = 1 << PD7;
 
   for (i=0; i<sizeof(table)/sizeof(table[0]); ++i)
   {

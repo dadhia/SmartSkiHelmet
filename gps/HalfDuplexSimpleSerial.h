@@ -43,6 +43,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <inttypes.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include "Arduino.h"
 
 #define ERROR_RX_TIMEOUT ((uint16_t)0xFFFF) 
 
@@ -50,7 +51,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 extern "C" {
 #endif
 
-extern void HDSS_start(uint8_t rxtxPin, uint8_t inverse_logic, long speed);
+extern void HDSS_start(uint8_t inverse_logic, long speed);
 extern void HDSS_write(uint8_t byte);
 extern uint8_t HDSS_read(void);
 /* receive a byte with a simple implement of timeout */
