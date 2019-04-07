@@ -136,18 +136,44 @@ void select_Xbee_for_rx() {
 	PORTD &= ~(1 << PD3);
 }
 
+/**
+ * Enables pins 15 and 16 on the Atmega328p for output.
+ */
+void enable_tx_select_pins() {
+	DDRB |= (1 << DDB1) | (1 << DDB2);
+}
+
+void select_RS232_for_tx() {
+	PORTB &= ~(1 << PB1);
+	PORTB &= ~(1 << PB2);
+}
+
+void select_Emic2_for_tx() {
+	PORTB |= (1 << PB1);
+	PORTB &= ~(1 << PB2);
+}
+
+void select_Xbee_for_tx() {
+	PORTB &= ~(1 << PB1);
+	PORTB |= (1 << PB2);
+}
+
 int main(void){
 	serial_init();
 	enable_rx_select_pins();
+	enable_tx_select_pins();
 	char c;
 	while(1){
 		select_GPS_for_rx();
-		sci_outs("I am now going to listen to GPS");
+		select_RS232_for_tx();
+		sci_outs("This should print to RS232\r\n");
+		select_RS232_for_tx();
 		get_latitude_and_longitude();
 		select_RS232_for_rx();
 		while (1) {
 			c = serial_in();
 			if (c == 'n') {
+				select_RS232_for_tx();
 				sci_outs("You want the next gps string!");
 				break;
 			}
@@ -156,12 +182,3 @@ int main(void){
 	return 0;
 	
 }
-
-
-
-
-
-
-
-
-
