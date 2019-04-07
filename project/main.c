@@ -109,10 +109,39 @@ void get_latitude_and_longitude() {
 }
 
 
+/**
+ * Enables pins 4 and 5 on the Atmega 328p for output.
+ */
+void enable_rx_select_pins() {
+	DDRD |= (1 << DDD2) | (1 << DDD3);
+}
+
+void select_GPS_for_rx() {
+	PORTD |= ~(1 << PD2);
+	PORTD |= ~(1 << PD3);
+}
+
+void select_RS232_for_rx() {
+	PORTD &= ~(1 << PD2);
+	PORTD |= (1 << PD3);
+}
+
 int main(void){
 	serial_init();
+	enable_rx_select_pins();
+	char c;
 	while(1){
+		select_GPS_for_rx();
+		sci_outs("I am now going to listen to GPS");
 		get_latitude_and_longitude();
+		select_RS232_for_rx();
+		while (1) {
+			c = serial_in();
+			if (c == 'n') {
+				sci_outs("You want the next gps string!");
+				break;
+			}
+		}
 	}
 	return 0;
 	
