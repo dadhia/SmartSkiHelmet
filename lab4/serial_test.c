@@ -78,7 +78,7 @@ int main(void){
 			//strcat(str5, &c);
 			//strcat(strtemp, adc);
 			//sprintf(buffer, "Sum of %d and %d is %d", a, b, c);
-			sprintf(strtemp, "you entered teh consonant %c \r\n", c);
+			sprintf(strtemp, "you entered the consonant %c \r\n", c);
 			sci_outs(strtemp);
 			
 		
