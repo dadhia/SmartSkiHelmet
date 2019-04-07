@@ -159,6 +159,9 @@ void select_Xbee_for_tx() {
 }
 
 int main(void){
+	serial_init();
+	enable_rx_select_pins();
+	enable_tx_select_pins();
 	char c;
 	while(1){
 		select_GPS_for_rx();
