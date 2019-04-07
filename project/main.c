@@ -126,6 +126,16 @@ void select_RS232_for_rx() {
 	PORTD |= (1 << PD3);
 }
 
+void select_Emic2_for_rx() {
+	PORTD |= (1 << PD2);
+	PORTD &= ~(1 << PD3);
+}
+
+void select_Xbee_for_rx() {
+	PORTD &= ~(1 << PD2);
+	PORTD &= ~(1 << PD3);
+}
+
 int main(void){
 	serial_init();
 	enable_rx_select_pins();
