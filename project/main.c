@@ -153,17 +153,17 @@ void select_Emic2_for_tx() {
 	PORTB &= ~(1 << PB2);
 }
 
+void select_Xbee_for_tx() {
+	PORTB &= ~(1 << PB1);
+	PORTB |= (1 << PB2);
+}
+
 int main(void){
-	serial_init();
-	enable_rx_select_pins();
-	enable_tx_select_pins();
 	char c;
 	while(1){
 		select_GPS_for_rx();
 		select_RS232_for_tx();
 		sci_outs("This should print to RS232\r\n");
-		select_Emic2_for_tx();
-		sci_outs("I am now going to listen to GPS");
 		select_RS232_for_tx();
 		get_latitude_and_longitude();
 		select_RS232_for_rx();
@@ -179,12 +179,3 @@ int main(void){
 	return 0;
 	
 }
-
-
-
-
-
-
-
-
-
