@@ -4,6 +4,7 @@
 #include <util/delay.h>
 #include <string.h>
 #include <stdio.h>
+#include "muxDemux.h"
 
 #include <avr/interrupt.h>
 //NECESSARY DATA USED FOR SERIAL COMMUNICATION
@@ -45,7 +46,11 @@ uint8_t i;
 
 char run_names[5][30];
 char run_NSWE[5][2];
+
 int run_coor[5][4]; //each entry has lattitude then longitude
+
+
+
 char friend_NS;
 char friend_EW;
 int longitude_i, latitude_i; //of my friend converted to integer value
@@ -62,6 +67,8 @@ int main(void){
 	run_coor[0][1] = 34011610; //lat_max
 	run_coor[0][2] = 118171610; //long_min
 	run_coor[0][3] = 118172390; //long_max
+	 //lat_max
+	
 	//run_NSWE[0] = {'N', 'W'}
 	/*strcpy(run_names[1] ,"Hangman's Hollow"); //Dedeaux Field
 	run_coor[1][0] = 3401258; 
@@ -562,75 +569,6 @@ eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 	return info;
 	
 }
-
-/**
- * Enables pins 4 and 5 on the Atmega 328p for output.
- */
-void enable_rx_select_pins() {
-	DDRD |= (1 << DDD2) | (1 << DDD3);
-}
-
-void select_GPS_for_rx() {
-	PORTD |= ~(1 << PD2);
-	PORTD |= ~(1 << PD3);
-}
-
-void select_RS232_for_rx() {
-	PORTD &= ~(1 << PD2);
-	PORTD |= (1 << PD3);
-}
-
-void select_Emic2_for_rx() {
-	PORTD |= (1 << PD2);
-	PORTD &= ~(1 << PD3);
-}
-
-void select_Xbee_for_rx() {
-	PORTD &= ~(1 << PD2);
-	PORTD &= ~(1 << PD3);
-}
-
-/**
- * Enables pins 15 and 16 on the Atmega328p for output.
- */
-void enable_tx_select_pins() {
-	DDRB |= (1 << DDB1) | (1 << DDB2);
-}
-
-void select_RS232_for_tx() {
-	PORTB &= ~(1 << PB1);
-	PORTB &= ~(1 << PB2);
-}
-
-void select_Emic2_for_tx() {
-	PORTB |= (1 << PB1);
-	PORTB &= ~(1 << PB2);
-}
-
-void select_Xbee_for_tx() {
-	PORTB &= ~(1 << PB1);
-	PORTB |= (1 << PB2);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /*
 
