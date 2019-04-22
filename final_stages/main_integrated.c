@@ -62,32 +62,32 @@ int main(void){
 	run_coor[0][1] = 34011610; //lat_max
 	run_coor[0][2] = 118171610; //long_min
 	run_coor[0][3] = 118172390; //long_max
-	//run_NSWE[0] = {'N', 'W'}
-	/*strcpy(run_names[1] ,"Hangman's Hollow"); //Dedeaux Field
-	run_coor[1][0] = 3401258; 
-	run_coor[1][1] = -11817222;
-	strcpy(run_names[2], "Drop Out Chutes");//MUDD Hall
-	run_coor[2][0] = 3401081;
-	run_coor[2][1] = -11817115;
-//	run_NSWE[0] = {'N', 'W'}
-	strcpy(run_names[3],"Wipe Out Chutes");
-	run_coor[3][0] = 3401153;
-	run_coor[3][1] = -11817118; //Bookstore
-	//run_NSWE[0] = {'N', 'W'}
-	strcpy(run_names[4], "Unbound");//Seaver science library
-	run_coor[4][0] = 34011050;
-	run_coor[4][0] = -118171880;*/
-	//run_NSWE[0] = {'N', 'W'}
-	/*run_names[5] = "Dragon's Back";
-	run_coor[5] =
-	run_names[6] = "Cornice Bowl";
-	run_coor[6] =
-	run_names[7] = "Scotty's";
-	run_coor[7] =
-	run_names[8] = "Phileppe's";
-	run_coor[8] = 
-	run_names[9] = "Kiwi Flat";
-	run_coor[9] = */
+	run_NSWE[0][0] = 'N';
+	run_NSWE[0][1] = 'W';
+	strcpy(run_names[1] ,"Hangman's Hollow"); //Cromwell Field
+	run_coor[1][0] = 34011660;
+	run_coor[1][1] = 34012240;
+	run_coor[1][2] = 118171170;
+	run_coor[1][3] = 118171400;
+	run_NSWE[1][0] = 'N';
+	run_NSWE[1][1] = 'W';
+	strcpy(run_names[2], "Drop Out Chutes");//Campus Center to alumni
+	run_coor[2][0] = 34011050;
+	run_coor[2][1] = 34011550;
+	run_coor[2][2] = 118170470;
+	run_coor[2][3] = 118171480;
+	run_NSWE[0][0] = 'N';
+	run_NSWE[0][1] = 'W';
+	
+	strcpy(run_names[3],"Wipe Out Chutes"); //SGM Area
+	run_coor[3][0] = 34011410;
+	run_coor[3][1] = 34011840;
+	run_coor[3][2] = 118171490;
+	run_coor[3][3] = 118172160;
+	run_NSWE[0][0] = 'N';
+	run_NSWE[0][1] = 'W';
+	
+	
 	friend_rx = 0;
 	friend_rx_stop = 0;
 	friend_tx = 0;
