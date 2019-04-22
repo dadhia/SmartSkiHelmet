@@ -4,6 +4,9 @@
 #include <util/delay.h>
 #include <string.h>
 #include <stdio.h>
+#include "muxDemux.h"
+#include "gps.h"
+#include "serial.h"
 
 #include <avr/interrupt.h>
 //NECESSARY DATA USED FOR SERIAL COMMUNICATION
@@ -12,24 +15,10 @@
 #define MYUBRR FOSC/16/BAUD-1   // Value for UBRR0 register
 void send_message ( char * text);
 void emic_speak(char * run);
-void serial_init();
-void serial_out(char c);
-void sci_outs(char * s);
-char serial_in();
-uint8_t parseHex(char c);
+
 char  serial_in_handshake ();
 char * serial_in_string();
-char* get_GPGGA_string();
 char * gps_get_info(char * info_array , char gps);
-void enable_rx_select_pins();
-void enable_tx_select_pins();
-void select_Emic2_for_rx();
-void select_Emic2_for_tx();
-void select_GPS_for_rx();
-void select_RS232_for_rx();
-void select_RS232_for_tx();
-void select_Xbee_for_rx();
-void select_Xbee_for_tx();
 
 void init_timer0(unsigned short int m);
 //GPS CONSTANTS
@@ -45,7 +34,11 @@ uint8_t i;
 
 char run_names[5][30];
 char run_NSWE[5][2];
+
 int run_coor[5][4]; //each entry has lattitude then longitude
+
+
+
 char friend_NS;
 char friend_EW;
 int longitude_i, latitude_i; //of my friend converted to integer value
@@ -62,6 +55,7 @@ int main(void){
 	run_coor[0][1] = 34011610; //lat_max
 	run_coor[0][2] = 118171610; //long_min
 	run_coor[0][3] = 118172390; //long_max
+
 	run_NSWE[0][0] = 'N';
 	run_NSWE[0][1] = 'W';
 	strcpy(run_names[1] ,"Hangman's Hollow"); //Cromwell Field
@@ -87,7 +81,7 @@ int main(void){
 	run_NSWE[0][0] = 'N';
 	run_NSWE[0][1] = 'W';
 	
-	
+
 	friend_rx = 0;
 	friend_rx_stop = 0;
 	friend_tx = 0;
@@ -352,39 +346,9 @@ void emic_speak(char * run)
 		sci_outs(final_run);
 	}
 }
-/*
-serial_init  - Initialize  the  USART  port TAKEN FROM SERIAL WORKSHEET
-*/
-void  serial_init() {
-UBRR0 = MYUBRR;             // Set  baud  rate
-UCSR0B  |= (1 << TXEN0 ); // Turn on  transmitter
-UCSR0B  |= (1 << RXEN0 ); // Turn on  receiver
-UCSR0C = (3 << UCSZ00 ); // Set  for  async. operation , no parity , one  stop bit , 8 data  bits
-}
-
-/*
-serial_out  - Output a byte to the  USART0  port TAKEN FROM SERIAL WORKSHEET
-*/
-void  serial_out(char ch)
-{
-while  (( UCSR0A & (1<<UDRE0 )) == 0);
-UDR0 = ch;
-}
 
 
-void  serial_out_num(int x)
-{
-while  (( UCSR0A & (1<<UDRE0 )) == 0);
-UDR0 = x;
-}
-/*
-serial_in  - Read a byte  from  the  USART0  and  return  it TAKEN FROM SERIAL WORKSHEET
-*/
-char  serial_in ()
-{
-	while ( !( UCSR0A & (1 << RXC0)) );
-	return  UDR0;
-}
+
 
 //for handshake protocol
 char  serial_in_handshake ()
@@ -412,68 +376,13 @@ char *  serial_in_string ()
 	return UDR0;
 }
 
-void sci_outs(char *s) //this code was taken from Prof Weber's at328-6.c program file
+void  serial_out_num(int x)
 {
-    char ch;
-
-    while ((ch = *s++) != '\0')
-        serial_out(ch);
+while  (( UCSR0A & (1<<UDRE0 )) == 0);
+UDR0 = x;
 }
 
-uint8_t parseHex(char c) {
-	if ((c >= '0') && (c <= '9')) {
-		return c - '0';
-	}
-	if ((c >= 'A') && (c <= 'F')) {
-		return (c - 'A') + 10;
-	}
-	return 0;
-}
 
-char* get_GPGGA_string() {
-	i = 0;
-	char c;
-	while (1) {
-		line1[i] = c = serial_in();
-		if (c == '$') {
-			line1[++i] = c = serial_in();
-			if (line1[i] == 'G') {
-				line1[++i] = c = serial_in();
-				if (line1[i] == 'P') {
-					line1[++i] = c = serial_in();
-					if (line1[i] == 'G') {
-						line1[++i] = c = serial_in();
-						if (line1[i] == 'G') {
-							line1[++i] = c = serial_in();
-							if (line1[i] == 'A') {
-								while ( (c = serial_in()) != '\n') {
-									line1[++i] = c;
-								}
-								line1[++i] = c;
-								line1[++i] = '\0';
-								//now verify checksum
-								size_t length = strlen(line1);
-								if (line1[length - 5] == '*') {
-									uint16_t checksum = parseHex(line1[length - 4]) * 16;
-									checksum += parseHex(line1[length -3]);
-									for (i = 1; i < length - 5; i++) {
-										checksum ^= line1[i];
-									}
-									if (checksum == 0) {
-										break;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		//we did not find the $GPGGA string which is desired OR checksum failed
-		i = 0;
-	}
-	return line1;
-}
 
 /*
 The function below will get any piece of the GPS information
@@ -562,75 +471,6 @@ eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 	return info;
 	
 }
-
-/**
- * Enables pins 4 and 5 on the Atmega 328p for output.
- */
-void enable_rx_select_pins() {
-	DDRD |= (1 << DDD2) | (1 << DDD3);
-}
-
-void select_GPS_for_rx() {
-	PORTD |= ~(1 << PD2);
-	PORTD |= ~(1 << PD3);
-}
-
-void select_RS232_for_rx() {
-	PORTD &= ~(1 << PD2);
-	PORTD |= (1 << PD3);
-}
-
-void select_Emic2_for_rx() {
-	PORTD |= (1 << PD2);
-	PORTD &= ~(1 << PD3);
-}
-
-void select_Xbee_for_rx() {
-	PORTD &= ~(1 << PD2);
-	PORTD &= ~(1 << PD3);
-}
-
-/**
- * Enables pins 15 and 16 on the Atmega328p for output.
- */
-void enable_tx_select_pins() {
-	DDRB |= (1 << DDB1) | (1 << DDB2);
-}
-
-void select_RS232_for_tx() {
-	PORTB &= ~(1 << PB1);
-	PORTB &= ~(1 << PB2);
-}
-
-void select_Emic2_for_tx() {
-	PORTB |= (1 << PB1);
-	PORTB &= ~(1 << PB2);
-}
-
-void select_Xbee_for_tx() {
-	PORTB &= ~(1 << PB1);
-	PORTB |= (1 << PB2);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /*
 
