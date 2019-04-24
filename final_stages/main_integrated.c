@@ -1,6 +1,6 @@
-//#include <math.h>
 #include <stdlib.h>
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <util/delay.h>
 #include <string.h>
 #include <stdio.h>
@@ -8,16 +8,10 @@
 #include "gps.h"
 #include "serial.h"
 
-#include <avr/interrupt.h>
-//NECESSARY DATA USED FOR SERIAL COMMUNICATION
-#define FOSC 7372800			// Clock frequency
-#define BAUD 9600              	// Baud rate used by the LCD
-#define MYUBRR FOSC/16/BAUD-1   // Value for UBRR0 register
+
 void send_message ( char * text);
 void emic_speak(char * run);
 
-char  serial_in_handshake ();
-char * serial_in_string();
 char * gps_get_info(char * info_array , char gps);
 
 void init_timer0(unsigned short int m);
@@ -51,13 +45,15 @@ uint8_t parseHex(char c) {
 char run_names[3][30];
 char run_NSWE[3][2];
 
+
 int run_coor[3][4]; //each entry has lattitude then longitude
+
 
 
 
 char friend_NS;
 char friend_EW;
-int longitude_i, latitude_i; //of my friend converted to integer value
+long longitude_i, latitude_i; //of my friend converted to integer value
 volatile char longitude[15]; //of my friend
 volatile char latitude[15]; //of my friend
 volatile char  rx_data[22];
@@ -65,6 +61,7 @@ volatile char rx_input, z, cc;
 volatile short count,count_fif, gps_want, gps_flag, j, friend_tx, friend_rx, friend_rx_stop, lat_flag, long_flag, long_match, lat_match;
 			//sprintf(strtemp, "you entered the consonant %c \r\n", c);
 char strtemp[20];
+
 int main(void){
 
 	strcpy(run_names[0],"Dave's Run"); //the engineering quad
@@ -108,9 +105,11 @@ int main(void){
 	lat_flag = 0;
 	long_match = 0;
 	lat_match = 0;
+
 	gps_flag = 0;
 	gps_want = 0;
 	j = 0;
+
 	//enable serial stuff and timer stuff
 	serial_init();
 	init_timer0(28800);
@@ -120,8 +119,10 @@ int main(void){
 	//enable serial pins for muxes
 	enable_rx_select_pins();
 	enable_tx_select_pins();
+
 	//select_RS232_for_tx();
 	//serial_out('H');
+
 	//select_Emic2_for_rx();
 	char run [MAX_NUM_CHARS];
 	sprintf(run, "Black Diamond");
@@ -140,7 +141,7 @@ int main(void){
 	char c;
 	char ack;
 	char * ptr, ptr_; //for strtod
-	//select_RS232_for_rx();
+
 	int index = 0;
 	int i = 0;
 	int magnitude = 0;
@@ -151,8 +152,6 @@ int main(void){
 	while(1){
 		select_Xbee_for_tx();
 		select_Xbee_for_rx();
-		//select_RS232_for_tx();
-		//select_RS232_for_rx();
 		if((PINB & (1<<PB0)) == 0)
 		{
 			serial_out('T');
@@ -183,7 +182,6 @@ int main(void){
 			sci_outs("\r\n");
 			sci_outs(longitude);
 			sci_outs("\r\n");*/
-			//serial_out_num(latitude_i);
 			for(i = 0; i < 1; i++)
 			{
 				if((run_coor[i][0] < latitude_i) & (run_coor[i][1] > latitude_i))
@@ -294,12 +292,6 @@ int main(void){
 	
 }
 
-
-
-
-
-
-
 ISR(USART_RX_vect){
 	//flags for synchronizing the radio transmissions:
 	//friend_rx => we have begun receiving the friends gps data
@@ -337,7 +329,9 @@ ISR(USART_RX_vect){
 					rx_data[count] = rx_input;
 					latitude[count_fif] = rx_input;
 					count_fif++;
-					if(count_fif == 15) count_fif == 0;
+					if(count_fif == 15) {
+						count_fif = 0;
+					}
 					count++;
 				}
 			}
@@ -358,7 +352,9 @@ ISR(USART_RX_vect){
 					rx_data[count] = rx_input;
 					longitude[count_fif] = rx_input;
 					count_fif++;
-					if(count_fif == 15) count_fif == 0;
+					if(count_fif == 15) {
+						count_fif = 0;
+					}
 					count++;
 				}
 			}
@@ -368,6 +364,7 @@ ISR(USART_RX_vect){
 			if(count == 10) count = 0;*/
 		}
 	}
+
 	
 	
 	
@@ -375,12 +372,11 @@ ISR(USART_RX_vect){
 
 ISR(TIMER1_COMPA_vect){
 	if((friend_tx == 1) & (friend_rx == 0))
+
 	{
 		//we sent a T and didn't get a response, so we send another T;
 		serial_out('T');
-		
 	}
-	
 }
 
 void init_timer0 (unsigned short int m)
@@ -438,42 +434,6 @@ void emic_speak(char * run)
 		sci_outs(final_run);
 	}
 }
-
-
-
-
-//for handshake protocol
-char  serial_in_handshake ()
-{
-while( !( UCSR0A & (1 << RXC0)) & (UDR0 != 'R'))
-{
-	serial_out('T');//retransmit the T
-	_delay_us(5);
-}
-return  UDR0;
-}
-
-
-//char array[74];
-char *  serial_in_string ()
-{
-	//array[0] = '\0';
-	//int i;
-	while( !( UCSR0A & (1 << RXC0)) );
-	/*for(i = 0; i < MAX_NUM_CHARS; ++i)
-	{
-		if((UDR0 == '\0') | (UDR0 == '@')) break;
-		array[i] = UDR0;
-	}*/
-	return UDR0;
-}
-
-void  serial_out_num(int x)
-{
-while  (( UCSR0A & (1<<UDRE0 )) == 0);
-UDR0 = x;
-}
-
 
 
 /*
@@ -606,12 +566,6 @@ eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 GOAL OF TONIGHT:
 GET A BUTTON PRESS ON ONE MICROCONTROLLER TO RECEIVE GPS DATA FROM THE OTHER
 
-
-
-
-
-
-
 			
 			gps_info = gps_get_info(get_GPGGA_string(), 'T');
 			sci_outs(a1);
@@ -639,27 +593,4 @@ GET A BUTTON PRESS ON ONE MICROCONTROLLER TO RECEIVE GPS DATA FROM THE OTHER
 				_delay_ms(1000);
 				PORTC &= ~(1 << PC2);
 			}
-			*/
-		//
-		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+*/
