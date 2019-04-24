@@ -1,10 +1,16 @@
 #include "gps.h"
 
 uint8_t parseHex(char c);
+//GPS CONSTANTS
+#define MAX_NUM_CHARS 120
+
+//global variables for GPS info
+char line1[MAX_NUM_CHARS];
+
 
 /* Looks to serial line for the next GPGGA string. */
 char* get_GPGGA_string() {
-	i = 0;
+	int i = 0;
 	char c;
 	while (1) {
 		line1[i] = c = serial_in();
