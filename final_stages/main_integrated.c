@@ -25,17 +25,33 @@ void init_timer0(unsigned short int m);
 #define MAX_NUM_CHARS 120
 char info[20];
 //**********************
-//global variables for GPS info
-char line1[MAX_NUM_CHARS];
+
 uint8_t i;
 //char latitude[15], longitude[15];
 //***********************
 
+//uint8_t parseHex(char c);
+//GPS CONSTANTS
+//#define MAX_NUM_CHARS 120
 
-char run_names[5][30];
-char run_NSWE[5][2];
+//global variables for GPS info
+//volatile char line1[110];
 
-int run_coor[5][4]; //each entry has lattitude then longitude
+/* Converts a character to decimal hex value. 
+uint8_t parseHex(char c) {
+	if ((c >= '0') && (c <= '9')) {
+		return c - '0';
+	}
+	if ((c >= 'A') && (c <= 'F')) {
+		return (c - 'A') + 10;
+	}
+	return 0;
+}*/
+
+char run_names[3][30];
+char run_NSWE[3][2];
+
+int run_coor[3][4]; //each entry has lattitude then longitude
 
 
 
@@ -45,41 +61,42 @@ int longitude_i, latitude_i; //of my friend converted to integer value
 volatile char longitude[15]; //of my friend
 volatile char latitude[15]; //of my friend
 volatile char  rx_data[22];
-volatile char rx_input, z;
-volatile short count,count_fif, friend_tx, friend_rx, friend_rx_stop, lat_flag, long_flag, long_match, lat_match;
+volatile char rx_input, z, cc;
+volatile short count,count_fif, gps_want, gps_flag, j, friend_tx, friend_rx, friend_rx_stop, lat_flag, long_flag, long_match, lat_match;
 			//sprintf(strtemp, "you entered the consonant %c \r\n", c);
 char strtemp[20];
 int main(void){
+
 	strcpy(run_names[0],"Dave's Run"); //the engineering quad
-	run_coor[0][0] = 34011080; //lat_min
-	run_coor[0][1] = 34011610; //lat_max
-	run_coor[0][2] = 118171610; //long_min
-	run_coor[0][3] = 118172390; //long_max
+	run_coor[0][0] = 34011862; //lat_min
+	run_coor[0][1] = 34012641; //lat_max
+	run_coor[0][2] = 118172746; //long_min
+	run_coor[0][3] = 118173958; //long_max
 
 	run_NSWE[0][0] = 'N';
 	run_NSWE[0][1] = 'W';
-	strcpy(run_names[1] ,"Hangman's Hollow"); //Cromwell Field
-	run_coor[1][0] = 34011660;
-	run_coor[1][1] = 34012240;
-	run_coor[1][2] = 118171170;
-	run_coor[1][3] = 118171400;
+	strcpy(run_names[1] ,"Hangman's Hollow"); //SGM
+	run_coor[1][0] = 34012323;
+	run_coor[1][1] = 34013118;
+	run_coor[1][2] = 118172414;
+	run_coor[1][3] = 118173647;
 	run_NSWE[1][0] = 'N';
 	run_NSWE[1][1] = 'W';
 	strcpy(run_names[2], "Drop Out Chutes");//Campus Center to alumni
-	run_coor[2][0] = 34011050;
-	run_coor[2][1] = 34011550;
-	run_coor[2][2] = 118170470;
-	run_coor[2][3] = 118171480;
+	run_coor[2][0] = 34011808;
+	run_coor[2][1] = 34012688;
+	run_coor[2][2] = 118171224;
+	run_coor[2][3] = 118171543;
 	run_NSWE[0][0] = 'N';
 	run_NSWE[0][1] = 'W';
-	
-	strcpy(run_names[3],"Wipe Out Chutes"); //SGM Area
-	run_coor[3][0] = 34011410;
-	run_coor[3][1] = 34011840;
-	run_coor[3][2] = 118171490;
-	run_coor[3][3] = 118172160;
+	/*
+	strcpy(run_names[3],"Wipe Out Chutes"); //cromwell Area
+	run_coor[3][0] = ;
+	run_coor[3][1] = ;
+	run_coor[3][2] = ;
+	run_coor[3][3] = ;
 	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';
+	run_NSWE[0][1] = 'W';*/
 	
 
 	friend_rx = 0;
@@ -91,6 +108,9 @@ int main(void){
 	lat_flag = 0;
 	long_match = 0;
 	lat_match = 0;
+	gps_flag = 0;
+	gps_want = 0;
+	j = 0;
 	//enable serial stuff and timer stuff
 	serial_init();
 	init_timer0(28800);
@@ -100,6 +120,8 @@ int main(void){
 	//enable serial pins for muxes
 	enable_rx_select_pins();
 	enable_tx_select_pins();
+	//select_RS232_for_tx();
+	//serial_out('H');
 	//select_Emic2_for_rx();
 	char run [MAX_NUM_CHARS];
 	sprintf(run, "Black Diamond");
@@ -107,10 +129,12 @@ int main(void){
 	//
 	//all other pin declarations and code
 
-	DDRC |= (1<<DDC2); //PC0 is an output
+	DDRC |= (1<<DDC2) | (1<<DDC0); //PC0 is an output
 	PORTC |= (1<< PC3); //PC1 has pull up enabled
 	PORTB |= (1<<PB0); //PULL UP RESISITOR FOR PB0
 	DDRD |= (1<<DDD7); //this is now an output
+	PORTD |= (1<<PD6);
+	PORTC &= ~(1<<PC0);
 	char * gps_info;
 	char * tx_test;
 	char c;
@@ -122,7 +146,7 @@ int main(void){
 	int magnitude = 0;
 	/*
 		char longitude[5] = "O3401";
-	char latitude[5] = "A1817";
+		char latitude[5] = "A1817";
 	*/
 	while(1){
 		select_Xbee_for_tx();
@@ -193,6 +217,78 @@ int main(void){
 			//PORTD &= ~(1<<PD7);
 			
 		}
+		if( (PIND & (1<<PD6)) == 0){
+			PORTD &= ~(1<<PD7);
+			cli();
+			serial_out('L');
+			select_GPS_for_rx();
+			select_RS232_for_tx();
+			_delay_ms(1000);
+			//sci_outs(gps_get_info(get_GPGGA_string(), 'F'));
+			char gps_array[100];
+			strcpy(gps_array, "O34012231NA118173111W");//gps_get_info(get_GPGGA_string(), 'F'));
+			//sci_outs(gps_array);
+			int x = 0;
+			count = 0;
+			short n_flag = 0;
+			for(x = 1; x < 21; x++)
+			{
+				if((gps_array[x] != 'N') & (n_flag == 0))
+				{
+					
+					latitude[count] = gps_array[x];
+					//serial_out(latitude[count]);
+					count++;
+				}
+				else if(gps_array[x] == 'N')
+				{
+					n_flag = 1;
+					latitude[count] = '\n';
+					count = 0;
+				}
+				else if((n_flag == 1) & (gps_array[x] != 'A') & (gps_array[x] != 'W'))
+				{
+					longitude[count] = gps_array[x];
+					count++;
+				}
+				longitude[count] = '\n';
+			}
+			sci_outs(latitude);
+			sci_outs(longitude);
+			latitude_i = atoi(latitude);
+			longitude_i = atoi(longitude);
+			for(x = 0; x < 3; x++)
+			{
+				if((run_coor[x][0] < latitude_i) & (run_coor[x][1] > latitude_i))
+				{
+					lat_match = 1;
+				}
+				if((run_coor[x][2] < longitude_i) & (run_coor[x][3] > longitude_i))
+				{
+					long_match = 1;
+				}
+				if((long_match & lat_match) == 1)
+				{
+					PORTD &= ~(1<<PD7);
+					_delay_ms(500);
+					PORTD |= (1<<PD7);
+					_delay_ms(500);
+					PORTD &= ~(1<<PD7);
+					_delay_ms(500);
+					PORTD |= (1<<PD7);
+					_delay_ms(500);
+					sprintf(strtemp, run_names[x]);
+					//sci_outs(strtemp);
+					emic_speak(strtemp);
+					_delay_ms(2000);
+					PORTD &= ~(1<<PD7);
+					break;
+					
+				}
+			
+			}
+			sei();
+		}
 	}
 	return 0;
 	
@@ -210,6 +306,7 @@ ISR(USART_RX_vect){
 	//friend_rx_stop => we have all of his data
 	//'R'
 	rx_input = UDR0;
+	//serial_out(rx_input);
 	if(rx_input == ':') z = rx_input;
 	if(rx_input == 'O') {
 		friend_rx = 1;
@@ -271,16 +368,13 @@ ISR(USART_RX_vect){
 			if(count == 10) count = 0;*/
 		}
 	}
-
-	//if we receive an R then we need to set a global flag that "hey we are getting ready to receive GPS data";
-	//we can't miss this, we need to set up a timer to keep sending a T
 	
 	
 	
 }
 
 ISR(TIMER1_COMPA_vect){
-	if(friend_tx == 1 & friend_rx == 0)
+	if((friend_tx == 1) & (friend_rx == 0))
 	{
 		//we sent a T and didn't get a response, so we send another T;
 		serial_out('T');
@@ -291,8 +385,6 @@ ISR(TIMER1_COMPA_vect){
 
 void init_timer0 (unsigned short int m)
 {
-	//int prescale = 256;
-	//int cyclecnt = 16000000/prescale;
 	TCCR1B |= (1<<WGM12);
 	TIMSK1 |= (1<<OCIE1A);
 	OCR1A = m; //m=2880
@@ -325,7 +417,7 @@ void emic_speak(char * run)
 	while ( z != ':') ;
 	z = 'x';
 	select_Emic2_for_tx();
-	sci_outs("V10\n");
+	sci_outs("V15\n");
 	while ( z != ':') ;
 	z = 'x';
 	_delay_ms(500);
@@ -405,7 +497,7 @@ D => xxxx = Differential reference station ID
 
 char * gps_get_info(char * info_array , char gps)
 {
-	/*
+	/*"$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54@";
 eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 	 0123456789012345678901234567890123456789012345678901234567890123456
 	           1         2         3         4         5         6  
@@ -414,13 +506,42 @@ eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 	
 	short count = 0;
 	int i = 0;
+	short n_flag = 0;
 	info[0] = '\0';//to clear string each time, since it is global
 	if( (info_array[43] != '1') | (info_array[18] == ',') | (info_array[19] == ',') | (info_array[20] == ','))
 	{
-		return "GPS NOT VALID";
+		return "GPS NOT VALID\r\n\0";
 	}
 	switch(gps)
 	{
+		case 'F':
+			info[count] = 'O';
+			++count;
+			for(i = 18; i < 42; ++i)
+			{
+				/*if((n_flag == 1) & (info_array[i] == ','))
+				{
+					info[count] = 'A';
+					--i;
+					n_flag = 0;
+				}*/
+				if((info_array[i] != ',') & (info_array[i] != '.'))
+				{
+					info[count] = info_array[i];
+					++count;
+					if(info_array[i] == 'N' | info_array[i] == 'S')
+					{
+						info[count] = 'A';
+						count++;
+					}
+				}
+			}
+			info[count] = '@';
+			//info[count] = '\r\n';
+			count = 0;
+			return info;
+			break;
+			
 		case 'T':
 			for(i = 7; i < 13; ++i)
 			{
