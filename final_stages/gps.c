@@ -1,42 +1,72 @@
 #include "gps.h"
 
-uint8_t parseHex(char c);
 //GPS CONSTANTS
 #define MAX_NUM_CHARS 120
 
-//global variables for GPS info
-char line1[MAX_NUM_CHARS];
+uint8_t parseHex(char c);
 
+char NMEA_line[MAX_NUM_CHARS];
+/**
+ * Initialize the run_coors and run_names arrays.
+ */
+void initialize_internal_gps_map(int run_coors[3][4], char run_NSWE[3][2], char run_names[3][30]) {
+	//engineering quad
+	strcpy(run_names[0],"Dave's Run");
+	run_coor[0][0] = 34011862; 	//lat_min
+	run_coor[0][1] = 34012641; 	//lat_max
+	run_coor[0][2] = 118172746; //long_min
+	run_coor[0][3] = 118173958; //long_max
+	run_NSWE[0][0] = 'N';
+	run_NSWE[0][1] = 'W';
+	
+	//SGM
+	strcpy(run_names[1] ,"Hangman's Hollow");
+	run_coor[1][0] = 34012323;
+	run_coor[1][1] = 34013118;
+	run_coor[1][2] = 118172414;
+	run_coor[1][3] = 118173647;
+	run_NSWE[1][0] = 'N';
+	run_NSWE[1][1] = 'W';
+	
+	//Campus Center to alumni
+	strcpy(run_names[2], "Drop Out Chutes");
+	run_coor[2][0] = 34011808;
+	run_coor[2][1] = 34012688;
+	run_coor[2][2] = 118171224;
+	run_coor[2][3] = 118171543;
+	run_NSWE[0][0] = 'N';
+	run_NSWE[0][1] = 'W';
+}
 
 /* Looks to serial line for the next GPGGA string. */
 char* get_GPGGA_string() {
 	int i = 0;
 	char c;
 	while (1) {
-		line1[i] = c = serial_in();
+		NMEA_line[i] = c = serial_in();
 		if (c == '$') {
-			line1[++i] = c = serial_in();
-			if (line1[i] == 'G') {
-				line1[++i] = c = serial_in();
-				if (line1[i] == 'P') {
-					line1[++i] = c = serial_in();
-					if (line1[i] == 'G') {
-						line1[++i] = c = serial_in();
-						if (line1[i] == 'G') {
-							line1[++i] = c = serial_in();
-							if (line1[i] == 'A') {
+			NMEA_line[++i] = c = serial_in();
+			if (NMEA_line[i] == 'G') {
+				NMEA_line[++i] = c = serial_in();
+				if (NMEA_line[i] == 'P') {
+					NMEA_line[++i] = c = serial_in();
+					if (NMEA_line[i] == 'G') {
+						NMEA_line[++i] = c = serial_in();
+						if (NMEA_line[i] == 'G') {
+							NMEA_line[++i] = c = serial_in();
+							if (NMEA_line[i] == 'A') {
 								while ( (c = serial_in()) != '\n') {
-									line1[++i] = c;
+									NMEA_line[++i] = c;
 								}
-								line1[++i] = c;
-								line1[++i] = '\0';
+								NMEA_line[++i] = c;
+								NMEA_line[++i] = '\0';
 								//now verify checksum
-								size_t length = strlen(line1);
-								if (line1[length - 5] == '*') {
-									uint16_t checksum = parseHex(line1[length - 4]) * 16;
-									checksum += parseHex(line1[length -3]);
+								size_t length = strlen(NMEA_line);
+								if (NMEA_line[length - 5] == '*') {
+									uint16_t checksum = parseHex(NMEA_line[length - 4]) * 16;
+									checksum += parseHex(NMEA_line[length -3]);
 									for (i = 1; i < length - 5; i++) {
-										checksum ^= line1[i];
+										checksum ^= NMEA_line[i];
 									}
 									if (checksum == 0) {
 										break;
@@ -51,7 +81,7 @@ char* get_GPGGA_string() {
 		//we did not find the $GPGGA string which is desired OR checksum failed
 		i = 0;
 	}
-	return line1;
+	return NMEA_line;
 }
 
 /* Converts a character to decimal hex value. */

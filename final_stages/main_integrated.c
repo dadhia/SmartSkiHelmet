@@ -15,41 +15,15 @@ void emic_speak(char * run);
 char * gps_get_info(char * info_array , char gps);
 
 void init_timer0(unsigned short int m);
-//GPS CONSTANTS
-#define MAX_NUM_CHARS 120
+
 char info[20];
-//**********************
 
 uint8_t i;
-//char latitude[15], longitude[15];
-//***********************
 
-//uint8_t parseHex(char c);
-//GPS CONSTANTS
-//#define MAX_NUM_CHARS 120
-
-//global variables for GPS info
-//volatile char line1[110];
-
-/* Converts a character to decimal hex value. 
-uint8_t parseHex(char c) {
-	if ((c >= '0') && (c <= '9')) {
-		return c - '0';
-	}
-	if ((c >= 'A') && (c <= 'F')) {
-		return (c - 'A') + 10;
-	}
-	return 0;
-}*/
-
-char run_names[3][30];
+//global variables for internal gps map
+int run_coor[3][4]; 	//each entry has lattitude then longitude
 char run_NSWE[3][2];
-
-
-int run_coor[3][4]; //each entry has lattitude then longitude
-
-
-
+char run_names[3][30];
 
 char friend_NS;
 char friend_EW;
@@ -59,42 +33,10 @@ volatile char latitude[15]; //of my friend
 volatile char  rx_data[22];
 volatile char rx_input, z, cc;
 volatile short count,count_fif, gps_want, gps_flag, j, friend_tx, friend_rx, friend_rx_stop, lat_flag, long_flag, long_match, lat_match;
-			//sprintf(strtemp, "you entered the consonant %c \r\n", c);
 char strtemp[20];
 
 int main(void){
-
-	strcpy(run_names[0],"Dave's Run"); //the engineering quad
-	run_coor[0][0] = 34011862; //lat_min
-	run_coor[0][1] = 34012641; //lat_max
-	run_coor[0][2] = 118172746; //long_min
-	run_coor[0][3] = 118173958; //long_max
-
-	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';
-	strcpy(run_names[1] ,"Hangman's Hollow"); //SGM
-	run_coor[1][0] = 34012323;
-	run_coor[1][1] = 34013118;
-	run_coor[1][2] = 118172414;
-	run_coor[1][3] = 118173647;
-	run_NSWE[1][0] = 'N';
-	run_NSWE[1][1] = 'W';
-	strcpy(run_names[2], "Drop Out Chutes");//Campus Center to alumni
-	run_coor[2][0] = 34011808;
-	run_coor[2][1] = 34012688;
-	run_coor[2][2] = 118171224;
-	run_coor[2][3] = 118171543;
-	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';
-	/*
-	strcpy(run_names[3],"Wipe Out Chutes"); //cromwell Area
-	run_coor[3][0] = ;
-	run_coor[3][1] = ;
-	run_coor[3][2] = ;
-	run_coor[3][3] = ;
-	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';*/
-	
+	initialize_internal_gps_map(run_coor, run_NSWE, run_names);
 
 	friend_rx = 0;
 	friend_rx_stop = 0;
@@ -117,13 +59,8 @@ int main(void){
 	sei(); //global interrupts;
 	
 	//enable serial pins for muxes
-	enable_rx_select_pins();
-	enable_tx_select_pins();
+	enable_serial_mux_demux();
 
-	//select_RS232_for_tx();
-	//serial_out('H');
-
-	//select_Emic2_for_rx();
 	char run [MAX_NUM_CHARS];
 	sprintf(run, "Black Diamond");
 	emic_speak(run);
@@ -162,26 +99,12 @@ int main(void){
 				i++;
 			}
 			friend_rx_stop = 0;
-			//friend_tx = 0;
-			//sci_outs(RX_FIFO);
-	//			sprintf(strtemp, "you entered the consonant %c \r\n", c);
-			
-			//if(RX_FIFO[9] == '@') PORTD |= (1<<PD7);
+
 			if(rx_data[22] == '@') rx_data[22] = '\0';
-			//latitude_d = strtod(latitude, &ptr); 
-			//longitude_d = strtod(longitude, &ptr_);
-			//latitude_d = atof(latitude);
 			
 			latitude_i = atoi(latitude);
 			longitude_i = atoi(longitude);
-			/*select_RS232_for_tx();
-			select_RS232_for_rx();
-			_delay_ms(1000);
-			sci_outs("\r\n");
-			sci_outs(latitude);
-			sci_outs("\r\n");
-			sci_outs(longitude);
-			sci_outs("\r\n");*/
+
 			for(i = 0; i < 1; i++)
 			{
 				if((run_coor[i][0] < latitude_i) & (run_coor[i][1] > latitude_i))
@@ -197,7 +120,6 @@ int main(void){
 					
 					PORTD |= (1<<PD7);
 					sprintf(strtemp, run_names[i]);
-					//sci_outs(strtemp);
 					emic_speak(strtemp);
 					_delay_ms(2000);
 					PORTD &= ~(1<<PD7);
@@ -205,15 +127,6 @@ int main(void){
 				}
 			
 			}
-			//sprintf(strtemp, "friend is at %s \r\n", RX_FIFO);
-			//select_RS232_for_tx();
-			//select_RS232_for_rx();
-			//_delay_ms(1000);
-			//sci_outs(strtemp);
-			
-			//_delay_ms(5000);
-			//PORTD &= ~(1<<PD7);
-			
 		}
 		if( (PIND & (1<<PD6)) == 0){
 			PORTD &= ~(1<<PD7);
@@ -222,10 +135,8 @@ int main(void){
 			select_GPS_for_rx();
 			select_RS232_for_tx();
 			_delay_ms(1000);
-			//sci_outs(gps_get_info(get_GPGGA_string(), 'F'));
 			char gps_array[100];
-			strcpy(gps_array, "O34012231NA118173111W");//gps_get_info(get_GPGGA_string(), 'F'));
-			//sci_outs(gps_array);
+			strcpy(gps_array, "O34012231NA118173111W");
 			int x = 0;
 			count = 0;
 			short n_flag = 0;
@@ -363,17 +274,11 @@ ISR(USART_RX_vect){
 			count++;
 			if(count == 10) count = 0;*/
 		}
-	}
-
-	
-	
-	
+	}	
 }
 
 ISR(TIMER1_COMPA_vect){
-	if((friend_tx == 1) & (friend_rx == 0))
-
-	{
+	if((friend_tx == 1) & (friend_rx == 0))	{
 		//we sent a T and didn't get a response, so we send another T;
 		serial_out('T');
 	}
@@ -405,6 +310,7 @@ void send_message ( char * text)
 }
 
 int initializer_count = 0;
+
 void emic_speak(char * run)
 {
 	//char z;
@@ -419,7 +325,7 @@ void emic_speak(char * run)
 	_delay_ms(500);
 	//parsing string
 	char final_run[MAX_NUM_CHARS];
-	sprintf(final_run, "SYour friend is on  %s run\n", run);
+	sprintf(final_run, "SYour friend is on %s\n", run);
 	
 	sci_outs(final_run);
 
@@ -430,7 +336,7 @@ void emic_speak(char * run)
 	else{
 		select_Emic2_for_tx();
 		char final_run[MAX_NUM_CHARS];
-		sprintf(final_run, "SYour friend is on  %s run\n", run);
+		sprintf(final_run, "SYour friend is on %s\n", run);
 		sci_outs(final_run);
 	}
 }

@@ -1,4 +1,10 @@
 #include "muxDemux.h"
+
+void enable_serial_mux_demux() {
+	enable_rx_select_pins();
+	enable_tx_select_pins();
+}
+
 /**
  * Enables pins 4 and 5 on the Atmega 328p for output.
  */
