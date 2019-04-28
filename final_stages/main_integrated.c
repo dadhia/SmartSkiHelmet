@@ -355,10 +355,10 @@ D => xxxx = Differential reference station ID
 char * gps_get_info(char * info_array , char gps)
 {
 	/*
-eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
-	 0123456789012345678901234567890123456789012345678901234567890123456
-	           1         2         3         4         5         6  
-   //$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54
+		$--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
+		0123456789012345678901234567890123456789012345678901234567890123456
+			1         2         3         4         5         6  
+		$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54
 	*/
 	
 	short count = 0;
@@ -420,45 +420,3 @@ eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 	return info;
 	
 }
-
-/*
-
-1.)send gps data over radio and receive it.
-2.)initiate travel of gps data with a button.
-3.)use interrupts to make use of asynchronous requests of gps data by multiple helmets
-4.)data structure for GPS data, must be small to fit inside of Arduino
-5.)maybe find a way to upload different maps depending on the mountain you're at328-6
-6.)put different map files on a website
-
-
-GOAL OF TONIGHT:
-GET A BUTTON PRESS ON ONE MICROCONTROLLER TO RECEIVE GPS DATA FROM THE OTHER
-
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'T');
-			sci_outs(a1);
-			sci_outs(gps_info);
-			//sci_outs(get_GPGGA_string());//$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'N');
-			sci_outs(a2);
-			sci_outs(gps_info);
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'W');
-			sci_outs(a3);
-			sci_outs(gps_info);
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'Q');
-			sci_outs(a4);
-			sci_outs(gps_info);
-			
-			_delay_ms(2000);
-		
-			serial_out('H');
-			_delay_ms(50);
-			if(serial_in() == 'H'){ 001029
-				PORTC |= (1 << PC2);
-				_delay_ms(1000);
-				PORTC &= ~(1 << PC2);
-			}
-*/
