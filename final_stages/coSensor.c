@@ -2,8 +2,12 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include "serial.h"
 #include "emic.h"
+
+#define NO_DATA_CO_LEVEL -1
 
 volatile int isCountingHigh_CO;
 volatile int high_count_CO;
@@ -36,7 +40,7 @@ void initialize_CO_reading() {
 	
 	//enable ADC
 	ADCSRA |= (1 << ADEN);
-	current_CO_ppm = -1;
+	current_CO_ppm = NO_DATA_CO_LEVEL;
 	
 	// Set the Timer Mode to CTC
     TCCR0A |= (1 << WGM01);
@@ -89,12 +93,13 @@ void update_CO_ppm() {
 		int upper_bits = ADCH;
 		int x = (upper_bits << 8) | lower_bits;
 		current_CO_ppm = CO_Sensor_LUT[x/10];
-		select_RS232_for_rx();
-		sprintf(ADC_value, "The ADC value is %d\r\n", x);
-		sci_outs(ADC_value);
-		sprintf(ADC_value, "The current CO ppm is %d\r\n", current_CO_ppm);
-		sci_outs(ADC_value);
-		emic_CO_speak(current_CO_ppm);
 	}
 }
 
+void speak_CO_value() {
+	if (current_CO_ppm == NO_DATA_CO_LEVEL) {
+		emic_CO_no_data();
+	} else {
+		emic_CO_speak(current_CO_ppm);
+	}
+}

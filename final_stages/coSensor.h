@@ -9,5 +9,6 @@
 void initialize_CO_reading();
 void start_CO_monitoring();
 void update_CO_ppm();
+void speak_CO_value();
 
 #endif

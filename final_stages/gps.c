@@ -117,70 +117,34 @@ D => xxxx = Differential reference station ID
 
 */
 
-char * gps_get_info(char * info_array , char gps)
-{
+char * gps_get_info(char * info_array) {
 	/*
 		$--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
 		0123456789012345678901234567890123456789012345678901234567890123456
 			1         2         3         4         5         6  
 		$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54
 	*/
-	
 	short count = 0;
 	int i = 0;
 	info[0] = '\0';//to clear string each time, since it is global
-	if( (info_array[43] != '1') | (info_array[18] == ',') | (info_array[19] == ',') | (info_array[20] == ','))
-	{
-		return "GPS NOT VALID";
+	if( (info_array[43] != '1') | (info_array[18] == ',') | (info_array[19] == ',') | (info_array[20] == ',')) {
+		return NULL;
 	}
-	switch(gps)
-	{
-		case 'T':
-			for(i = 7; i < 13; ++i)
+	
+	info[count] = 'O';
+	count++;
+	for (i = 18; i < 42; i++) {
+		if((info_array[i] != ',') & (info_array[i] != '.'))
+		{
+			info[count] = info_array[i];
+			count++;
+			if(info_array[i] == 'N' | info_array[i] == 'S')
 			{
-				info[count] = info_array[i];
-				++count;
+				info[count] = 'A';
+				count++;
 			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;
-		
-		case 'N':
-			for(i = 18; i < 27; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;			
-		
-		case 'W':
-			for(i = 30; i < 39; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-		break;
-		
-		case 'Q':
-			for(i = 43; i < 44; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;
-
-		default:
-		break;
+		}
 	}
+	info[count] = '@';
 	return info;
 }
