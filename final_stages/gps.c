@@ -16,8 +16,6 @@ char info[MAX_NUM_CHARS];
 void initialize_internal_gps_map(long run_coor[3][4], char run_NSWE[3][2], char run_names[3][30]) {
 	//engineering quad
 	strcpy(run_names[0],"Dave's Run");
-	//TODO: Dave's run too small
-	//run_coor[0][0] = 34011862; 	//lat_min
 	run_coor[0][0] = 34011700; 
 	run_coor[0][1] = 34012641; 	//lat_max
 	run_coor[0][2] = 118172746; //long_min
