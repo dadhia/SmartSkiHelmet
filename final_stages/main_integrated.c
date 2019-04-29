@@ -40,6 +40,9 @@ char strtemp[20];
 
 char white_debug[100];
 
+volatile int failed_requests_count;
+volatile int request_aborted;
+
 
 int main(void){
 	serial_init();
@@ -54,7 +57,6 @@ int main(void){
 	UCSR0B |= (1<<RXCIE0); //enable the interrupts on recieving data
 	sei(); //global interrupts;
 	friend_rx = 0;
-	friend_rx_stop = 0;
 	friend_tx = 0;
 	count = 0;
 	count_fif = 0;
@@ -106,6 +108,13 @@ int main(void){
 			char debug[200];
 			char* lat_long_info_string;
 			gpgga_string = get_GPGGA_string();
+			if (DEBUG) {
+				select_RS232_for_tx();
+				_delay_ms(RS232_DELAY);
+				strcpy(debug, gpgga_string);
+				sci_outs(debug);
+				_delay_ms(RS232_DELAY);
+			}
 			lat_long_info_string = gps_get_info(gpgga_string);
 			
 			if (lat_long_info_string == NULL) {
@@ -115,6 +124,85 @@ int main(void){
 					_delay_ms(RS232_DELAY);
 					sci_outs("There is no gps fix!\r\n");
 					_delay_ms(RS232_DELAY);
+				}
+			} else {
+				strcpy(gps_array, lat_long_info_string);
+				int x = 0;
+				count = 0;
+				short n_flag = 0;
+				
+				for(x = 1; x < 21; x++)
+				{
+					if((gps_array[x] != 'N') & (n_flag == 0)) {
+						latitude[count] = gps_array[x];
+						count++;
+					}
+					else if(gps_array[x] == 'N') {
+						n_flag = 1;
+						latitude[count] = '\n';
+						count = 0;
+					}
+					else if((n_flag == 1) & (gps_array[x] != 'A') & (gps_array[x] != 'W')) {
+						longitude[count] = gps_array[x];
+						count++;
+					}
+				}
+				longitude[count] = '\n';
+				
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %s\r\n", latitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+					
+					sprintf(white_debug, "Longitude is: %s\r\n", longitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+
+				latitude_i = atol(latitude);
+				longitude_i = atol(longitude);
+				
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %ld\r\n", latitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				
+					sprintf(white_debug, "Longitude is: %ld\r\n", longitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+				for(x = 0; x < NUM_RUNS; x++)
+				{
+					int lat_match = 0;
+					int long_match = 0;
+					
+					if((run_coor[x][0] <= latitude_i) && (run_coor[x][1] >= latitude_i))
+					{
+						lat_match = 1;
+					}
+					if((run_coor[x][2] <= longitude_i) && (run_coor[x][3] >= longitude_i))
+					{
+						long_match = 1;
+					}
+					if(long_match && lat_match)
+					{
+						PORTD &= ~(1<<PD7);
+						_delay_ms(500);
+						PORTD |= (1<<PD7);
+						_delay_ms(500);
+						PORTD &= ~(1<<PD7);
+						_delay_ms(500);
+						PORTD |= (1<<PD7);
+						_delay_ms(500);
+						sprintf(strtemp, run_names[x]);
+						emic_my_slope_speak(strtemp);
+						PORTD &= ~(1<<PD7);
+						break;
+					}
 				}
 			}
 			sei();
@@ -128,68 +216,76 @@ int main(void){
 				sci_outs("White button pressed!\r\n");
 				_delay_ms(RS232_DELAY);
 			}
+			emic_contacting_your_friend();
+			failed_requests_count = 0;
+			request_aborted = 0;
+			friend_rx_stop = 0;
 			select_Xbee_for_rx();
 			select_Xbee_for_tx();
 			serial_out('T');
 			friend_tx = 1;
 			
-			while(friend_rx_stop == 0)
-			{
-				i++;
-			}
-			friend_rx_stop = 0;
-		
-			sprintf(white_debug, "Latitude is: %s\r\n", latitude);
-			select_RS232_for_tx();
-			_delay_ms(RS232_DELAY);
-			sci_outs(white_debug);
-			
-			sprintf(white_debug, "Longitude is: %s\r\n", longitude);
-			select_RS232_for_tx();
-			_delay_ms(RS232_DELAY);
-			sci_outs(white_debug);
-			const char lat_const[20];
-			const char long_const[20];
-			
-			strcpy(lat_const, latitude);
-			strcpy(long_const, longitude);
-			
-			latitude_i = atol(latitude);
-			longitude_i = atol(longitude);
-			
-			sprintf(white_debug, "Latitude is: %ld\r\n", latitude_i);
-			select_RS232_for_tx();
-			_delay_ms(RS232_DELAY);
-			sci_outs(white_debug);
-			
-			sprintf(white_debug, "Longitude is: %ld\r\n", longitude_i);
-			select_RS232_for_tx();
-			_delay_ms(RS232_DELAY);
-			sci_outs(white_debug);
-			int i = 0;
-			for(i = 0; i < NUM_RUNS; i++) {
-				int lat_match = 0;
-				int long_match = 0;
-				if ((run_coor[i][0] <= latitude_i) && (run_coor[i][1] >= latitude_i)) {
-					lat_match = 1;
-				}
-				if (( run_coor[i][2] <= longitude_i) && (run_coor[i][3] >= longitude_i)) {
-					long_match = 1;
-				}
-				if (long_match && lat_match) {
-					PORTD |= (1<<PD7);
-					sprintf(strtemp, run_names[i]);
-					emic_slope_speak(strtemp);
-					_delay_ms(2000);
-					PORTD &= ~(1<<PD7);
-					break;
-				}
-			}
+			while((friend_rx_stop == 0) && (request_aborted == 0));
 			if (DEBUG) {
 				select_RS232_for_tx();
 				_delay_ms(RS232_DELAY);
-				sci_outs(rx_data);
-				sci_outs("\r\n");
+				sci_outs("Transmission complete\r\n");
+				_delay_ms(RS232_DELAY);
+			}
+			if (request_aborted) {
+				if (DEBUG) {
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs("Transmission aborted\r\n");
+					_delay_ms(RS232_DELAY);
+				}
+				emic_no_friend();
+			} else {
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %s\r\n", latitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+					
+					sprintf(white_debug, "Longitude is: %s\r\n", longitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+
+				latitude_i = atol(latitude);
+				longitude_i = atol(longitude);
+				
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %ld\r\n", latitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+					
+					sprintf(white_debug, "Longitude is: %ld\r\n", longitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+
+				int i = 0;
+				for(i = 0; i < NUM_RUNS; i++) {
+					int lat_match = 0;
+					int long_match = 0;
+					if ((run_coor[i][0] <= latitude_i) && (run_coor[i][1] >= latitude_i)) {
+						lat_match = 1;
+					}
+					if (( run_coor[i][2] <= longitude_i) && (run_coor[i][3] >= longitude_i)) {
+						long_match = 1;
+					}
+					if (long_match && lat_match) {
+						PORTD |= (1<<PD7);
+						sprintf(strtemp, run_names[i]);
+						emic_slope_speak(strtemp);
+						PORTD &= ~(1<<PD7);
+						break;
+					}
+				}	
 			}
 			
 		}
@@ -275,6 +371,11 @@ ISR(TIMER1_COMPA_vect){
 	if((friend_tx == 1) & (friend_rx == 0))	{
 		//we sent a T and didn't get a response, so we send another T;
 		serial_out('T');
+		failed_requests_count++;
+		if (failed_requests_count == 40) {
+			friend_tx = 0;
+			request_aborted = 1;
+		}
 	}
 }
 
@@ -285,73 +386,3 @@ void init_timer0 (unsigned short int m)
 	OCR1A = m; //m=2880
 	TCCR1B |= (1<<CS12);	
 }
-
-
-			/*
-			else {
-				strcpy(gps_array, lat_long_info_string);
-				
-				if (DEBUG) {
-					select_RS232_for_tx();
-					_delay_ms(RS232_DELAY);
-					strcpy(debug, gpgga_string);
-					sci_outs(debug);
-				}
-				
-				int x = 0;
-				count = 0;
-				short n_flag = 0;
-				for(x = 1; x < 21; x++)
-				{
-					if((gps_array[x] != 'N') & (n_flag == 0))
-					{
-						
-						latitude[count] = gps_array[x];
-						//serial_out(latitude[count]);
-						count++;
-					}
-					else if(gps_array[x] == 'N')
-					{
-						n_flag = 1;
-						latitude[count] = '\n';
-						count = 0;
-					}
-					else if((n_flag == 1) & (gps_array[x] != 'A') & (gps_array[x] != 'W'))
-					{
-						longitude[count] = gps_array[x];
-						count++;
-					}
-					longitude[count] = '\n';
-				}
-				sci_outs(latitude);
-				sci_outs(longitude);
-				latitude_i = atoi(latitude);
-				longitude_i = atoi(longitude);
-				for(x = 0; x < 3; x++)
-				{
-					if((run_coor[x][0] < latitude_i) & (run_coor[x][1] > latitude_i))
-					{
-						lat_match = 1;
-					}
-					if((run_coor[x][2] < longitude_i) & (run_coor[x][3] > longitude_i))
-					{
-						long_match = 1;
-					}
-					if((long_match & lat_match) == 1)
-					{
-						PORTD &= ~(1<<PD7);
-						_delay_ms(500);
-						PORTD |= (1<<PD7);
-						_delay_ms(500);
-						PORTD &= ~(1<<PD7);
-						_delay_ms(500);
-						PORTD |= (1<<PD7);
-						_delay_ms(500);
-						sprintf(strtemp, run_names[x]);
-						emic_slope_speak(strtemp);
-						PORTD &= ~(1<<PD7);
-						break;
-					}
-				}
-			}
-			*/

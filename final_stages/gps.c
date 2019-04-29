@@ -1,4 +1,5 @@
 #include "gps.h"
+#include "muxDemux.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -15,7 +16,9 @@ char info[MAX_NUM_CHARS];
 void initialize_internal_gps_map(long run_coor[3][4], char run_NSWE[3][2], char run_names[3][30]) {
 	//engineering quad
 	strcpy(run_names[0],"Dave's Run");
-	run_coor[0][0] = 34011862; 	//lat_min
+	//TODO: Dave's run too small
+	//run_coor[0][0] = 34011862; 	//lat_min
+	run_coor[0][0] = 34011700; 
 	run_coor[0][1] = 34012641; 	//lat_max
 	run_coor[0][2] = 118172746; //long_min
 	run_coor[0][3] = 118173958; //long_max
@@ -43,6 +46,7 @@ void initialize_internal_gps_map(long run_coor[3][4], char run_NSWE[3][2], char 
 
 /* Looks to serial line for the next GPGGA string. */
 char* get_GPGGA_string() {
+	select_GPS_for_rx();
 	int i = 0;
 	char c;
 	while (1) {
@@ -127,10 +131,10 @@ char * gps_get_info(char * info_array) {
 	short count = 0;
 	int i = 0;
 	info[0] = '\0';//to clear string each time, since it is global
-	if( (info_array[43] != '1') | (info_array[18] == ',') | (info_array[19] == ',') | (info_array[20] == ',')) {
+	if( (info_array[18] == ',') || (info_array[19] == ',') || (info_array[20] == ',')) {
 		return NULL;
 	}
-	
+
 	info[count] = 'O';
 	count++;
 	for (i = 18; i < 42; i++) {
@@ -138,7 +142,7 @@ char * gps_get_info(char * info_array) {
 		{
 			info[count] = info_array[i];
 			count++;
-			if(info_array[i] == 'N' | info_array[i] == 'S')
+			if((info_array[i] == 'N') | (info_array[i] == 'S'))
 			{
 				info[count] = 'A';
 				count++;
