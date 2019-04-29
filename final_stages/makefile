@@ -1,7 +1,7 @@
 DEVICE     = atmega328p
 CLOCK      = 7372800
 PROGRAMMER = -c usbtiny -P usb
-OBJECTS    = muxDemux.o serial.o main_integrated.o gps.o
+OBJECTS    = muxDemux.o serial.o  coSensor.o gps.o emic.o main_integrated.o
 FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0xe0:m
 
 # Fuse Low Byte = 0xe0   Fuse High Byte = 0xd9   Fuse Extended Byte = 0xff

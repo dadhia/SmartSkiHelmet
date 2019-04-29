@@ -1,4 +1,6 @@
 #include "gps.h"
+#include <string.h>
+#include <stdlib.h>
 
 //GPS CONSTANTS
 #define MAX_NUM_CHARS 120
@@ -6,10 +8,11 @@
 uint8_t parseHex(char c);
 
 char NMEA_line[MAX_NUM_CHARS];
+char info[MAX_NUM_CHARS];
 /**
  * Initialize the run_coors and run_names arrays.
  */
-void initialize_internal_gps_map(int run_coors[3][4], char run_NSWE[3][2], char run_names[3][30]) {
+void initialize_internal_gps_map(long run_coor[3][4], char run_NSWE[3][2], char run_names[3][30]) {
 	//engineering quad
 	strcpy(run_names[0],"Dave's Run");
 	run_coor[0][0] = 34011862; 	//lat_min

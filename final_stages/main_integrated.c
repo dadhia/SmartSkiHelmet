@@ -7,18 +7,20 @@
 #include "muxDemux.h"
 #include "gps.h"
 #include "serial.h"
+#include "coSensor.h"
+#include "emic.h"
 
-
-void send_message ( char * text);
-void emic_speak(char * run);
+#define MAX_NUM_CHARS_MAIN_INTEGRATED 120
 
 char * gps_get_info(char * info_array , char gps);
 
 void init_timer0(unsigned short int m);
+void start_CO_monitoring();
 
 char info[20];
 
 uint8_t i;
+
 
 //global variables for internal gps map
 int run_coor[3][4]; 	//each entry has lattitude then longitude
@@ -36,8 +38,17 @@ volatile short count,count_fif, gps_want, gps_flag, j, friend_tx, friend_rx, fri
 char strtemp[20];
 
 int main(void){
+	serial_init();
+	enable_serial_mux_demux();
+	initialize_emic();
+	
+	initialize_CO_reading();
 	initialize_internal_gps_map(run_coor, run_NSWE, run_names);
-
+	
+	//enable serial stuff and timer stuff
+	init_timer0(28800);
+	UCSR0B |= (1<<RXCIE0); //enable the interrupts on recieving data
+	sei(); //global interrupts;
 	friend_rx = 0;
 	friend_rx_stop = 0;
 	friend_tx = 0;
@@ -52,40 +63,22 @@ int main(void){
 	gps_want = 0;
 	j = 0;
 
-	//enable serial stuff and timer stuff
-	serial_init();
-	init_timer0(28800);
-	UCSR0B |= (1<<RXCIE0); //enable the interrupts on recieving data
-	sei(); //global interrupts;
-	
-	//enable serial pins for muxes
-	enable_serial_mux_demux();
-
-	char run [MAX_NUM_CHARS];
-	sprintf(run, "Black Diamond");
-	emic_speak(run);
-	//
-	//all other pin declarations and code
-
 	DDRC |= (1<<DDC2) | (1<<DDC0); //PC0 is an output
 	PORTC |= (1<< PC3); //PC1 has pull up enabled
 	PORTB |= (1<<PB0); //PULL UP RESISITOR FOR PB0
 	DDRD |= (1<<DDD7); //this is now an output
 	PORTD |= (1<<PD6);
 	PORTC &= ~(1<<PC0);
-	char * gps_info;
-	char * tx_test;
-	char c;
-	char ack;
-	char * ptr, ptr_; //for strtod
+	
+	
+	select_RS232_for_tx();
+	
+	start_CO_monitoring();
+	while (1) {
+		update_CO_ppm();
+	}
+	
 
-	int index = 0;
-	int i = 0;
-	int magnitude = 0;
-	/*
-		char longitude[5] = "O3401";
-		char latitude[5] = "A1817";
-	*/
 	while(1){
 		select_Xbee_for_tx();
 		select_Xbee_for_rx();
@@ -117,7 +110,6 @@ int main(void){
 				}
 				if((long_match & lat_match) == 1)
 				{
-					
 					PORTD |= (1<<PD7);
 					sprintf(strtemp, run_names[i]);
 					emic_speak(strtemp);
@@ -199,6 +191,7 @@ int main(void){
 			sei();
 		}
 	}
+
 	return 0;
 	
 }
@@ -290,53 +283,4 @@ void init_timer0 (unsigned short int m)
 	TIMSK1 |= (1<<OCIE1A);
 	OCR1A = m; //m=2880
 	TCCR1B |= (1<<CS12);	
-}
-
-void send_message ( char * text)
-{
-	char c;
-	char out[MAX_NUM_CHARS];
-	
-	while (1)
-	{
-		c = serial_in();
-		while (c == ':')
-		{
-			strcpy(out, "S");
-			strcat(out, text);
-			sci_outs(out);
-		}
-	}	
-}
-
-int initializer_count = 0;
-
-void emic_speak(char * run)
-{
-	//char z;
-	if(initializer_count ==0){
-	select_Emic2_for_rx();
-	while ( z != ':') ;
-	z = 'x';
-	select_Emic2_for_tx();
-	sci_outs("V15\n");
-	while ( z != ':') ;
-	z = 'x';
-	_delay_ms(500);
-	//parsing string
-	char final_run[MAX_NUM_CHARS];
-	sprintf(final_run, "SYour friend is on %s\n", run);
-	
-	sci_outs(final_run);
-
-	while ( z  != ':') ;
-	z = 'x';
-	initializer_count++;
-	}
-	else{
-		select_Emic2_for_tx();
-		char final_run[MAX_NUM_CHARS];
-		sprintf(final_run, "SYour friend is on %s\n", run);
-		sci_outs(final_run);
-	}
 }

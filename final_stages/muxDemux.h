@@ -4,7 +4,7 @@
 #include <avr/io.h>
 
 // enable functions
-void enable_serial_mux_demux()
+void enable_serial_mux_demux();
 
 void enable_rx_select_pins();
 void enable_tx_select_pins();

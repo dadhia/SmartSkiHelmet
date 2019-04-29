@@ -13,8 +13,8 @@ void enable_rx_select_pins() {
 }
 
 void select_GPS_for_rx() {
-	PORTD |= ~(1 << PD2);
-	PORTD |= ~(1 << PD3);
+	PORTD |= (1 << PD2);
+	PORTD |= (1 << PD3);
 }
 
 void select_RS232_for_rx() {
