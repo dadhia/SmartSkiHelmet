@@ -7,49 +7,26 @@
 #include "muxDemux.h"
 #include "gps.h"
 #include "serial.h"
+#include "coSensor.h"
+#include "emic.h"
 
-
-void send_message ( char * text);
-void emic_speak(char * run);
-
-char * gps_get_info(char * info_array , char gps);
+#define MAX_NUM_CHARS_MAIN_INTEGRATED 120
+#define DEBUG 1
+#define RS232_DELAY 500
+#define NUM_RUNS 3
 
 void init_timer0(unsigned short int m);
-//GPS CONSTANTS
-#define MAX_NUM_CHARS 120
+void start_CO_monitoring();
+
 char info[20];
-//**********************
 
 uint8_t i;
-//char latitude[15], longitude[15];
-//***********************
-
-//uint8_t parseHex(char c);
-//GPS CONSTANTS
-//#define MAX_NUM_CHARS 120
-
-//global variables for GPS info
-//volatile char line1[110];
-
-/* Converts a character to decimal hex value. 
-uint8_t parseHex(char c) {
-	if ((c >= '0') && (c <= '9')) {
-		return c - '0';
-	}
-	if ((c >= 'A') && (c <= 'F')) {
-		return (c - 'A') + 10;
-	}
-	return 0;
-}*/
-
-char run_names[3][30];
-char run_NSWE[3][2];
 
 
-int run_coor[3][4]; //each entry has lattitude then longitude
-
-
-
+//global variables for internal gps map
+long run_coor[NUM_RUNS][4]; 	//each entry has lattitude then longitude
+char run_NSWE[NUM_RUNS][2];
+char run_names[NUM_RUNS][30];
 
 char friend_NS;
 char friend_EW;
@@ -58,77 +35,37 @@ volatile char longitude[15]; //of my friend
 volatile char latitude[15]; //of my friend
 volatile char  rx_data[22];
 volatile char rx_input, z, cc;
-volatile short count,count_fif, gps_want, gps_flag, j, friend_tx, friend_rx, friend_rx_stop, lat_flag, long_flag, long_match, lat_match;
-			//sprintf(strtemp, "you entered the consonant %c \r\n", c);
+volatile short count,count_fif, gps_want, gps_flag, j, friend_tx, friend_rx, friend_rx_stop, lat_flag, long_flag;
 char strtemp[20];
 
+char white_debug[100];
+
+volatile int failed_requests_count;
+volatile int request_aborted;
+
+
 int main(void){
-
-	strcpy(run_names[0],"Dave's Run"); //the engineering quad
-	run_coor[0][0] = 34011862; //lat_min
-	run_coor[0][1] = 34012641; //lat_max
-	run_coor[0][2] = 118172746; //long_min
-	run_coor[0][3] = 118173958; //long_max
-
-	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';
-	strcpy(run_names[1] ,"Hangman's Hollow"); //SGM
-	run_coor[1][0] = 34012323;
-	run_coor[1][1] = 34013118;
-	run_coor[1][2] = 118172414;
-	run_coor[1][3] = 118173647;
-	run_NSWE[1][0] = 'N';
-	run_NSWE[1][1] = 'W';
-	strcpy(run_names[2], "Drop Out Chutes");//Campus Center to alumni
-	run_coor[2][0] = 34011808;
-	run_coor[2][1] = 34012688;
-	run_coor[2][2] = 118171224;
-	run_coor[2][3] = 118171543;
-	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';
-	/*
-	strcpy(run_names[3],"Wipe Out Chutes"); //cromwell Area
-	run_coor[3][0] = ;
-	run_coor[3][1] = ;
-	run_coor[3][2] = ;
-	run_coor[3][3] = ;
-	run_NSWE[0][0] = 'N';
-	run_NSWE[0][1] = 'W';*/
+	serial_init();
+	enable_serial_mux_demux();
+	initialize_emic();
 	
-
+	initialize_CO_reading();
+	initialize_internal_gps_map(run_coor, run_NSWE, run_names);
+	
+	//enable serial stuff and timer stuff
+	init_timer0(28800);
+	UCSR0B |= (1<<RXCIE0); //enable the interrupts on recieving data
+	sei(); //global interrupts;
 	friend_rx = 0;
-	friend_rx_stop = 0;
 	friend_tx = 0;
 	count = 0;
 	count_fif = 0;
 	long_flag = 0;
 	lat_flag = 0;
-	long_match = 0;
-	lat_match = 0;
 
 	gps_flag = 0;
 	gps_want = 0;
 	j = 0;
-
-	//enable serial stuff and timer stuff
-	serial_init();
-	init_timer0(28800);
-	UCSR0B |= (1<<RXCIE0); //enable the interrupts on recieving data
-	sei(); //global interrupts;
-	
-	//enable serial pins for muxes
-	enable_rx_select_pins();
-	enable_tx_select_pins();
-
-	//select_RS232_for_tx();
-	//serial_out('H');
-
-	//select_Emic2_for_rx();
-	char run [MAX_NUM_CHARS];
-	sprintf(run, "Black Diamond");
-	emic_speak(run);
-	//
-	//all other pin declarations and code
 
 	DDRC |= (1<<DDC2) | (1<<DDC0); //PC0 is an output
 	PORTC |= (1<< PC3); //PC1 has pull up enabled
@@ -136,160 +73,224 @@ int main(void){
 	DDRD |= (1<<DDD7); //this is now an output
 	PORTD |= (1<<PD6);
 	PORTC &= ~(1<<PC0);
-	char * gps_info;
-	char * tx_test;
-	char c;
-	char ack;
-	char * ptr, ptr_; //for strtod
-
-	int index = 0;
-	int i = 0;
-	int magnitude = 0;
-	/*
-		char longitude[5] = "O3401";
-		char latitude[5] = "A1817";
-	*/
-	while(1){
-		select_Xbee_for_tx();
-		select_Xbee_for_rx();
-		if((PINB & (1<<PB0)) == 0)
-		{
-			serial_out('T');
-			friend_tx = 1;
-			int i = 0;
-			while(friend_rx_stop == 0)
-			{
-				i++;
+	
+	
+	select_RS232_for_tx();
+	
+	start_CO_monitoring();
+	while (1) {
+		update_CO_ppm();
+		// RED BUTTON PRESSED
+		if ( (PINC & (1 << PC3)) == 0) {
+			if (DEBUG) {
+				select_RS232_for_tx();
+				_delay_ms(RS232_DELAY);
+				sci_outs("Red button pressed!\r\n");
 			}
-			friend_rx_stop = 0;
-			//friend_tx = 0;
-			//sci_outs(RX_FIFO);
-	//			sprintf(strtemp, "you entered the consonant %c \r\n", c);
-			
-			//if(RX_FIFO[9] == '@') PORTD |= (1<<PD7);
-			if(rx_data[22] == '@') rx_data[22] = '\0';
-			//latitude_d = strtod(latitude, &ptr); 
-			//longitude_d = strtod(longitude, &ptr_);
-			//latitude_d = atof(latitude);
-			
-			latitude_i = atoi(latitude);
-			longitude_i = atoi(longitude);
-			/*select_RS232_for_tx();
-			select_RS232_for_rx();
-			_delay_ms(1000);
-			sci_outs("\r\n");
-			sci_outs(latitude);
-			sci_outs("\r\n");
-			sci_outs(longitude);
-			sci_outs("\r\n");*/
-			for(i = 0; i < 1; i++)
-			{
-				if((run_coor[i][0] < latitude_i) & (run_coor[i][1] > latitude_i))
-				{
-					lat_match = 1;
-				}
-				if((run_coor[i][2] < longitude_i) & (run_coor[i][3] > longitude_i))
-				{
-					long_match = 1;
-				}
-				if((long_match & lat_match) == 1)
-				{
-					
-					PORTD |= (1<<PD7);
-					sprintf(strtemp, run_names[i]);
-					//sci_outs(strtemp);
-					emic_speak(strtemp);
-					_delay_ms(2000);
-					PORTD &= ~(1<<PD7);
-					
-				}
-			
-			}
-			//sprintf(strtemp, "friend is at %s \r\n", RX_FIFO);
-			//select_RS232_for_tx();
-			//select_RS232_for_rx();
-			//_delay_ms(1000);
-			//sci_outs(strtemp);
-			
-			//_delay_ms(5000);
-			//PORTD &= ~(1<<PD7);
-			
+			speak_CO_value();
 		}
+		
+		// BLUE BUTTON PRESSED
 		if( (PIND & (1<<PD6)) == 0){
-			PORTD &= ~(1<<PD7);
+			if (DEBUG) {
+				select_RS232_for_tx();
+				_delay_ms(RS232_DELAY);
+				sci_outs("Blue button pressed!\r\n");
+			}
+			
 			cli();
-			serial_out('L');
 			select_GPS_for_rx();
 			select_RS232_for_tx();
 			_delay_ms(1000);
-			//sci_outs(gps_get_info(get_GPGGA_string(), 'F'));
+			
 			char gps_array[100];
-			strcpy(gps_array, "O34012231NA118173111W");//gps_get_info(get_GPGGA_string(), 'F'));
-			//sci_outs(gps_array);
-			int x = 0;
-			count = 0;
-			short n_flag = 0;
-			for(x = 1; x < 21; x++)
-			{
-				if((gps_array[x] != 'N') & (n_flag == 0))
-				{
-					
-					latitude[count] = gps_array[x];
-					//serial_out(latitude[count]);
-					count++;
+			char* gpgga_string;
+			char debug[200];
+			char* lat_long_info_string;
+			gpgga_string = get_GPGGA_string();
+			if (DEBUG) {
+				select_RS232_for_tx();
+				_delay_ms(RS232_DELAY);
+				strcpy(debug, gpgga_string);
+				sci_outs(debug);
+				_delay_ms(RS232_DELAY);
+			}
+			lat_long_info_string = gps_get_info(gpgga_string);
+			
+			if (lat_long_info_string == NULL) {
+				emic_no_gps_fix();
+				if (DEBUG) {
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs("There is no gps fix!\r\n");
+					_delay_ms(RS232_DELAY);
 				}
-				else if(gps_array[x] == 'N')
+			} else {
+				strcpy(gps_array, lat_long_info_string);
+				int x = 0;
+				count = 0;
+				short n_flag = 0;
+				
+				for(x = 1; x < 21; x++)
 				{
-					n_flag = 1;
-					latitude[count] = '\n';
-					count = 0;
-				}
-				else if((n_flag == 1) & (gps_array[x] != 'A') & (gps_array[x] != 'W'))
-				{
-					longitude[count] = gps_array[x];
-					count++;
+					if((gps_array[x] != 'N') & (n_flag == 0)) {
+						latitude[count] = gps_array[x];
+						count++;
+					}
+					else if(gps_array[x] == 'N') {
+						n_flag = 1;
+						latitude[count] = '\n';
+						count = 0;
+					}
+					else if((n_flag == 1) & (gps_array[x] != 'A') & (gps_array[x] != 'W')) {
+						longitude[count] = gps_array[x];
+						count++;
+					}
 				}
 				longitude[count] = '\n';
-			}
-			sci_outs(latitude);
-			sci_outs(longitude);
-			latitude_i = atoi(latitude);
-			longitude_i = atoi(longitude);
-			for(x = 0; x < 3; x++)
-			{
-				if((run_coor[x][0] < latitude_i) & (run_coor[x][1] > latitude_i))
-				{
-					lat_match = 1;
-				}
-				if((run_coor[x][2] < longitude_i) & (run_coor[x][3] > longitude_i))
-				{
-					long_match = 1;
-				}
-				if((long_match & lat_match) == 1)
-				{
-					PORTD &= ~(1<<PD7);
-					_delay_ms(500);
-					PORTD |= (1<<PD7);
-					_delay_ms(500);
-					PORTD &= ~(1<<PD7);
-					_delay_ms(500);
-					PORTD |= (1<<PD7);
-					_delay_ms(500);
-					sprintf(strtemp, run_names[x]);
-					//sci_outs(strtemp);
-					emic_speak(strtemp);
-					_delay_ms(2000);
-					PORTD &= ~(1<<PD7);
-					break;
+				
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %s\r\n", latitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
 					
+					sprintf(white_debug, "Longitude is: %s\r\n", longitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
 				}
-			
+
+				latitude_i = atol(latitude);
+				longitude_i = atol(longitude);
+				
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %ld\r\n", latitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				
+					sprintf(white_debug, "Longitude is: %ld\r\n", longitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+				for(x = 0; x < NUM_RUNS; x++)
+				{
+					int lat_match = 0;
+					int long_match = 0;
+					
+					if((run_coor[x][0] <= latitude_i) && (run_coor[x][1] >= latitude_i))
+					{
+						lat_match = 1;
+					}
+					if((run_coor[x][2] <= longitude_i) && (run_coor[x][3] >= longitude_i))
+					{
+						long_match = 1;
+					}
+					if(long_match && lat_match)
+					{
+						PORTD &= ~(1<<PD7);
+						_delay_ms(500);
+						PORTD |= (1<<PD7);
+						_delay_ms(500);
+						PORTD &= ~(1<<PD7);
+						_delay_ms(500);
+						PORTD |= (1<<PD7);
+						_delay_ms(500);
+						sprintf(strtemp, run_names[x]);
+						emic_my_slope_speak(strtemp);
+						PORTD &= ~(1<<PD7);
+						break;
+					}
+				}
 			}
 			sei();
 		}
+		
+		// WHITE BUTTON PRESSED
+		if ( (PINB & (1 << PB0)) == 0) {
+			if (DEBUG) {
+				select_RS232_for_tx();
+				_delay_ms(RS232_DELAY);
+				sci_outs("White button pressed!\r\n");
+				_delay_ms(RS232_DELAY);
+			}
+			emic_contacting_your_friend();
+			failed_requests_count = 0;
+			request_aborted = 0;
+			friend_rx_stop = 0;
+			select_Xbee_for_rx();
+			select_Xbee_for_tx();
+			serial_out('T');
+			friend_tx = 1;
+			
+			while((friend_rx_stop == 0) && (request_aborted == 0));
+			if (DEBUG) {
+				select_RS232_for_tx();
+				_delay_ms(RS232_DELAY);
+				sci_outs("Transmission complete\r\n");
+				_delay_ms(RS232_DELAY);
+			}
+			if (request_aborted) {
+				if (DEBUG) {
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs("Transmission aborted\r\n");
+					_delay_ms(RS232_DELAY);
+				}
+				emic_no_friend();
+			} else {
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %s\r\n", latitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+					
+					sprintf(white_debug, "Longitude is: %s\r\n", longitude);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+
+				latitude_i = atol(latitude);
+				longitude_i = atol(longitude);
+				
+				if (DEBUG) {
+					sprintf(white_debug, "Latitude is: %ld\r\n", latitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+					
+					sprintf(white_debug, "Longitude is: %ld\r\n", longitude_i);
+					select_RS232_for_tx();
+					_delay_ms(RS232_DELAY);
+					sci_outs(white_debug);
+				}
+
+				int i = 0;
+				for(i = 0; i < NUM_RUNS; i++) {
+					int lat_match = 0;
+					int long_match = 0;
+					if ((run_coor[i][0] <= latitude_i) && (run_coor[i][1] >= latitude_i)) {
+						lat_match = 1;
+					}
+					if (( run_coor[i][2] <= longitude_i) && (run_coor[i][3] >= longitude_i)) {
+						long_match = 1;
+					}
+					if (long_match && lat_match) {
+						PORTD |= (1<<PD7);
+						sprintf(strtemp, run_names[i]);
+						emic_slope_speak(strtemp);
+						PORTD &= ~(1<<PD7);
+						break;
+					}
+				}	
+			}
+			
+		}
 	}
 	return 0;
-	
 }
 
 ISR(USART_RX_vect){
@@ -363,19 +364,18 @@ ISR(USART_RX_vect){
 			count++;
 			if(count == 10) count = 0;*/
 		}
-	}
-
-	
-	
-	
+	}	
 }
 
 ISR(TIMER1_COMPA_vect){
-	if((friend_tx == 1) & (friend_rx == 0))
-
-	{
+	if((friend_tx == 1) & (friend_rx == 0))	{
 		//we sent a T and didn't get a response, so we send another T;
 		serial_out('T');
+		failed_requests_count++;
+		if (failed_requests_count == 40) {
+			friend_tx = 0;
+			request_aborted = 1;
+		}
 	}
 }
 
@@ -386,211 +386,3 @@ void init_timer0 (unsigned short int m)
 	OCR1A = m; //m=2880
 	TCCR1B |= (1<<CS12);	
 }
-
-void send_message ( char * text)
-{
-	char c;
-	char out[MAX_NUM_CHARS];
-	
-	while (1)
-	{
-		c = serial_in();
-		while (c == ':')
-		{
-			strcpy(out, "S");
-			strcat(out, text);
-			sci_outs(out);
-		}
-	}	
-}
-
-int initializer_count = 0;
-void emic_speak(char * run)
-{
-	//char z;
-	if(initializer_count ==0){
-	select_Emic2_for_rx();
-	while ( z != ':') ;
-	z = 'x';
-	select_Emic2_for_tx();
-	sci_outs("V15\n");
-	while ( z != ':') ;
-	z = 'x';
-	_delay_ms(500);
-	//parsing string
-	char final_run[MAX_NUM_CHARS];
-	sprintf(final_run, "SYour friend is on  %s run\n", run);
-	
-	sci_outs(final_run);
-
-	while ( z  != ':') ;
-	z = 'x';
-	initializer_count++;
-	}
-	else{
-		select_Emic2_for_tx();
-		char final_run[MAX_NUM_CHARS];
-		sprintf(final_run, "SYour friend is on  %s run\n", run);
-		sci_outs(final_run);
-	}
-}
-
-
-/*
-The function below will get any piece of the GPS information
-here are the commands to feed it and what it will produce for each one:
-
-T => hhmmss.ss = UTC of position
-N => llll.ll = latitude of position; a = N or S
-W => yyyyy.yy = Longitude of position; a = E or W
-Q => x = GPS Quality indicator (0=no fix, 1=GPS fix, 2=Dif. GPS fix)
-S => xx = number of satellites in use
-P => x.x = horizontal dilution of precision
-A => x.x = Antenna altitude above mean-sea-level
-M => M = units of antenna altitude, meters
-I => x.x = Geoidal separation
-G => M = units of geoidal separation, meters
-Z => x.x = Age of Differential GPS data (seconds)
-D => xxxx = Differential reference station ID 
-
-*/
-
-char * gps_get_info(char * info_array , char gps)
-{
-	/*"$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54@";
-eg2. $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx
-	 0123456789012345678901234567890123456789012345678901234567890123456
-	           1         2         3         4         5         6  
-   //$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54
-	*/
-	
-	short count = 0;
-	int i = 0;
-	short n_flag = 0;
-	info[0] = '\0';//to clear string each time, since it is global
-	if( (info_array[43] != '1') | (info_array[18] == ',') | (info_array[19] == ',') | (info_array[20] == ','))
-	{
-		return "GPS NOT VALID\r\n\0";
-	}
-	switch(gps)
-	{
-		case 'F':
-			info[count] = 'O';
-			++count;
-			for(i = 18; i < 42; ++i)
-			{
-				/*if((n_flag == 1) & (info_array[i] == ','))
-				{
-					info[count] = 'A';
-					--i;
-					n_flag = 0;
-				}*/
-				if((info_array[i] != ',') & (info_array[i] != '.'))
-				{
-					info[count] = info_array[i];
-					++count;
-					if(info_array[i] == 'N' | info_array[i] == 'S')
-					{
-						info[count] = 'A';
-						count++;
-					}
-				}
-			}
-			info[count] = '@';
-			//info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;
-			
-		case 'T':
-			for(i = 7; i < 13; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;
-		
-		case 'N':
-			for(i = 18; i < 27; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;			
-		
-		case 'W':
-			for(i = 30; i < 39; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-		break;
-		
-		case 'Q':
-			for(i = 43; i < 44; ++i)
-			{
-				info[count] = info_array[i];
-				++count;
-			}
-			info[count] = '\r\n';
-			count = 0;
-			return info;
-			break;
-
-		default:
-		break;
-	}
-	return info;
-	
-}
-
-/*
-
-1.)send gps data over radio and receive it.
-2.)initiate travel of gps data with a button.
-3.)use interrupts to make use of asynchronous requests of gps data by multiple helmets
-4.)data structure for GPS data, must be small to fit inside of Arduino
-5.)maybe find a way to upload different maps depending on the mountain you're at328-6
-6.)put different map files on a website
-
-
-GOAL OF TONIGHT:
-GET A BUTTON PRESS ON ONE MICROCONTROLLER TO RECEIVE GPS DATA FROM THE OTHER
-
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'T');
-			sci_outs(a1);
-			sci_outs(gps_info);
-			//sci_outs(get_GPGGA_string());//$GPGGA,201937.000,3401.2181,N,11817.3458,W,1,06,2.34,129.0,M,-33.8,M,,*54
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'N');
-			sci_outs(a2);
-			sci_outs(gps_info);
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'W');
-			sci_outs(a3);
-			sci_outs(gps_info);
-			
-			gps_info = gps_get_info(get_GPGGA_string(), 'Q');
-			sci_outs(a4);
-			sci_outs(gps_info);
-			
-			_delay_ms(2000);
-		
-			serial_out('H');
-			_delay_ms(50);
-			if(serial_in() == 'H'){ 001029
-				PORTC |= (1 << PC2);
-				_delay_ms(1000);
-				PORTC &= ~(1 << PC2);
-			}
-*/

@@ -1,4 +1,10 @@
 #include "muxDemux.h"
+
+void enable_serial_mux_demux() {
+	enable_rx_select_pins();
+	enable_tx_select_pins();
+}
+
 /**
  * Enables pins 4 and 5 on the Atmega 328p for output.
  */
@@ -7,8 +13,8 @@ void enable_rx_select_pins() {
 }
 
 void select_GPS_for_rx() {
-	PORTD |= ~(1 << PD2);
-	PORTD |= ~(1 << PD3);
+	PORTD |= (1 << PD2);
+	PORTD |= (1 << PD3);
 }
 
 void select_RS232_for_rx() {

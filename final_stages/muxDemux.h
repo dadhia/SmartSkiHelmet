@@ -2,7 +2,10 @@
 #define MUX_DEMUX
 
 #include <avr/io.h>
-/* Enable functions. Always call these. */
+
+// enable functions
+void enable_serial_mux_demux();
+
 void enable_rx_select_pins();
 void enable_tx_select_pins();
 
